@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+"""
+HYPER-LUDOVICO: PROFESSIONAL ENTROPY ENGINE (V4.2)
+- Advanced Optical Flow Datamoshing
+- VHS / Low-Bitrate Internet Decay
+- Harsh Noise Stutter Synth
+"""
+
 import os
 import shutil
 import subprocess
@@ -9,157 +16,174 @@ import numpy as np
 import cv2
 import wave
 import struct
+from pathlib import Path
 
-# -------------------- ADVANCED CONFIG --------------------
+# -------------------- CORE ENGINE --------------------
 
-BASE_SETTINGS = {
-    "fps": 24,
-    "internal_res": (480, 360), # 4:3 aspect ratio for that old-school feel
-    "decay": 0.98,
-    "flow_scaling": 1.5,        # Strength of optical flow drag
-    "bitflip_prob": 0.0005,     # Subtle but lethal byte corruption
-    "vhs_noise_strength": 15,
-}
-
-# -------------------- THE PHYSICS OF DECAY --------------------
-
-def apply_optical_flow_mosh(curr, prev, accumulation, flow_scale=1.0):
+def apply_optical_flow_mosh(curr, prev, accumulation, flow_scale=1.0, drag=1.0):
     """
-    Uses Farneback Optical Flow to move pixels from the 'accumulation' 
-    buffer based on the motion between curr and prev.
+    Calculates motion between frames and warps the persistent 'accumulation' 
+    buffer to follow that motion. This is the 'Professional' datamosh look.
     """
     prev_gray = cv2.cvtColor(prev, cv2.COLOR_BGR2GRAY)
     curr_gray = cv2.cvtColor(curr, cv2.COLOR_BGR2GRAY)
     
-    # Calculate motion vectors
-    flow = cv2.calcOpticalFlowFarneback(prev_gray, curr_gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
+    # Calculate motion vectors (Farneback Algorithm)
+    flow = cv2.calcOpticalFlowFarneback(
+        prev_gray, curr_gray, None, 
+        pyr_scale=0.5, levels=3, winsize=15, 
+        iterations=3, poly_n=5, poly_sigma=1.2, flags=0
+    )
     
     h, w = accumulation.shape[:2]
     y, x = np.mgrid[0:h, 0:w].reshape(2, -1).astype(np.float32)
     
-    # Apply flow to the coordinates
+    # Extract flow vectors
     fx, fy = flow[:,:,0], flow[:,:,1]
-    nx = np.clip(x + fx.reshape(-1) * flow_scale, 0, w-1)
-    ny = np.clip(y + fy.reshape(-1) * flow_scale, 0, h-1)
     
-    # Remap the accumulation buffer to the new moving coordinates
+    # Warp coordinates based on motion * drag
+    nx = np.clip(x + fx.reshape(-1) * flow_scale * drag, 0, w-1)
+    ny = np.clip(y + fy.reshape(-1) * flow_scale * drag, 0, h-1)
+    
+    # Remap the accumulation buffer to new coordinates
     moshed = cv2.remap(accumulation, nx.reshape(h, w), ny.reshape(h, w), cv2.INTER_LINEAR)
     return moshed
 
-def vhs_tape_rot(img, chaos):
-    """Adds head-switching noise and luma tracking errors."""
+def apply_entropy_filters(img, chaos):
+    """Adds VHS head-switching noise, luma tearing, and color rot."""
     h, w, _ = img.shape
     out = img.copy()
     
-    # 1. Head switching noise (bottom flicker)
-    noise_h = random.randint(4, 10)
-    out[h-noise_h:, :] = np.random.randint(0, 255, (noise_h, w, 3), dtype=np.uint8)
+    # 1. VHS Head Switching (Bottom static line)
+    if random.random() < 0.9:
+        noise_h = random.randint(4, 8)
+        out[h-noise_h:, :] = np.random.randint(0, 255, (noise_h, w, 3), dtype=np.uint8)
     
-    # 2. Horizontal Luma Tearing (Low internet style)
-    if random.random() < 0.1 * chaos:
-        y_line = random.randint(0, h-1)
-        shift = random.randint(-20, 20)
-        out[y_line:] = np.roll(out[y_line:], shift, axis=1)
+    # 2. Horizontal Tearing (Packet Loss / Low Internet)
+    if random.random() < 0.15 * chaos:
+        y_start = random.randint(0, h-20)
+        y_end = y_start + random.randint(5, 50)
+        shift = random.randint(-30, 30)
+        out[y_start:y_end] = np.roll(out[y_start:y_end], shift, axis=1)
         
-    # 3. Color Bleed (YUV shift)
-    img_yuv = cv2.cvtColor(out, cv2.COLOR_BGR2YUV)
-    img_yuv[:,:,1] = np.roll(img_yuv[:,:,1], random.randint(2, 5), axis=1) # Shift U
-    out = cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
+    # 3. YUV Chroma Bleed (Analog Rot)
+    if random.random() < 0.4:
+        img_yuv = cv2.cvtColor(out, cv2.COLOR_BGR2YUV)
+        img_yuv[:,:,1] = np.roll(img_yuv[:,:,1], random.randint(1, 4), axis=1) # Shift U
+        out = cv2.cvtColor(img_yuv, cv2.COLOR_YUV2BGR)
     
     return out
 
 # -------------------- AUDIO SYNTH --------------------
 
-def synth_broken_stream(duration, sr=22050):
-    """Produces 'rotting' audio: white noise mixed with digital stutter."""
+def synth_broken_audio(duration, chaos=2.0, drag=1.0):
+    """Produces 'rotting' audio: white noise + digital stutter + clipping."""
+    sr = 22050
     n_samples = int(duration * sr)
-    # White noise base
-    audio = np.random.uniform(-0.2, 0.2, n_samples)
+    # Harsh Noise Base
+    audio = np.random.uniform(-0.3, 0.3, n_samples)
     
-    # Add 'digital scream' sine sweeps
-    t = np.linspace(0, duration, n_samples)
-    sweep = np.sin(2 * np.pi * np.cumsum(np.random.choice([50, 200, 1000], n_samples) * t/n_samples))
-    audio += sweep * 0.1
-    
-    # Stutter effect
-    chunk_size = int(sr * 0.05)
+    # Digital Stutter (Granular repetition)
+    chunk_size = int(sr * 0.04)
     for i in range(0, n_samples - chunk_size, chunk_size):
-        if random.random() < 0.15:
-            # Repeat a small chunk (digital lag)
+        if random.random() < (0.1 * chaos):
+            # Repeat previous chunk to simulate lag
             audio[i:i+chunk_size] = audio[max(0, i-chunk_size):i]
             
-    audio = np.tanh(audio * 5.0) # Distort
-    return (audio * 32767).astype(np.int16)
-
-# -------------------- MAIN ENGINE --------------------
-
-def process(v1, v2, out_name, chaos=2.0):
-    tmp = tempfile.mkdtemp()
-    w, h = BASE_SETTINGS["internal_res"]
-    fps = BASE_SETTINGS["fps"]
+    # Add digital 'screams' (sine sweeps)
+    t = np.linspace(0, duration, n_samples)
+    mod = np.sin(2 * np.pi * random.uniform(50, 500) * t)
+    audio = (audio + mod * 0.15) * (1.5 * drag)
     
-    print(f">> Extracting to {tmp}...")
-    # Fix: Ensure ffmpeg scales correctly and handles differing inputs
-    for i, v in enumerate([v1, v2]):
+    # Extreme Distortion (Hard Clip)
+    audio = np.tanh(audio * 4.0)
+    return (audio * 32767).astype(np.int16), sr
+
+# -------------------- PROCESSOR --------------------
+
+def process_video(args):
+    tmp = Path(tempfile.mkdtemp())
+    w, h = 480, 360 # Classic 4:3 VHS ratio
+    if args.internal_res:
+        w, h = map(int, args.internal_res.split('x'))
+
+    print(f">> INITIALIZING ENTROPY ENGINE | SEED: {random.randint(0,999)}")
+    
+    # Extract Frames
+    for i, v in enumerate([args.v1, args.v2]):
         subprocess.run([
-            "ffmpeg", "-i", v, "-vf", f"scale={w}:{h},fps={fps}", 
-            f"{tmp}/v{i}_%04d.png"
-        ], check=True, capture_output=True)
+            "ffmpeg", "-y", "-i", v, "-vf", f"scale={w}:{h},fps={args.fps}", 
+            f"{tmp}/v{i}_%05d.png"
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    v1_frames = sorted([f for f in os.listdir(tmp) if f.startswith("v0_")])
-    v2_frames = sorted([f for f in os.listdir(tmp) if f.startswith("v1_")])
+    v1_frames = sorted(list(tmp.glob("v0_*.png")))
+    v2_frames = sorted(list(tmp.glob("v1_*.png")))
     
-    accumulation = cv2.imread(os.path.join(tmp, v1_frames[0]))
+    if not v1_frames: raise ValueError("No frames extracted from V1.")
+
+    accumulation = cv2.imread(str(v1_frames[0]))
     prev_frame = accumulation.copy()
     
-    out_dir = os.path.join(tmp, "out")
-    os.makedirs(out_dir)
+    out_dir = tmp / "out"
+    out_dir.mkdir()
 
-    print(">> Moshing...")
+    print(f">> MOSHING {len(v1_frames)} FRAMES...")
+    
+    
+
     for i in range(1, len(v1_frames)):
-        curr = cv2.imread(os.path.join(tmp, v1_frames[i]))
+        curr = cv2.imread(str(v1_frames[i]))
         
-        # Determine if we 'mosh' or 'reset' (I-frame logic)
-        if random.random() > 0.05: # 95% chance to keep moshing
-            # Drag pixels using Optical Flow
-            accumulation = apply_optical_flow_mosh(curr, prev_frame, accumulation, flow_scale=chaos)
+        # Datamosh Logic: P-Frame Smear
+        # 95% of frames 'mosh' (drag accumulation), 5% 'reset' (bring in new image)
+        if random.random() > (0.05 / args.chaos):
+            accumulation = apply_optical_flow_mosh(
+                curr, prev_frame, accumulation, 
+                flow_scale=args.chaos, drag=args.drag
+            )
         else:
-            # Sudden digital 'reset' to the other video
-            if v2_frames:
-                accumulation = cv2.imread(os.path.join(tmp, random.choice(v2_frames)))
+            # Inject texture from V2
+            idx2 = i % len(v2_frames) if v2_frames else 0
+            accumulation = cv2.imread(str(v2_frames[idx2]))
         
-        # Apply the "Rot" filters
-        final_frame = vhs_tape_rot(accumulation, chaos)
+        # Apply Rot/VHS Filters
+        final = apply_entropy_filters(accumulation, args.chaos)
         
-        # Occasionally mix back the source to prevent total blackness
-        if random.random() < 0.1:
-            final_frame = cv2.addWeighted(final_frame, 0.7, curr, 0.3, 0)
+        # Subtle blend with source to keep some detail
+        final = cv2.addWeighted(final, 0.85, curr, 0.15, 0)
 
-        cv2.imwrite(os.path.join(out_dir, f"done_{i:04d}.png"), final_frame)
+        cv2.imwrite(str(out_dir / f"frame_{i:05d}.png"), final)
         prev_frame = curr
-        if i % 24 == 0: print(f" Frame {i} processed...")
+        if i % 30 == 0: print(f" Rendering: {int(i/len(v1_frames)*100)}%")
 
-    # Render Output
-    print(">> Finalizing...")
-    audio_data = synth_broken_stream(len(v1_frames)/fps)
-    audio_path = os.path.join(tmp, "audio.wav")
-    with wave.open(audio_path, 'wb') as wf:
-        wf.setnchannels(1); wf.setsampwidth(2); wf.setframerate(22050)
+    # Audio & Mux
+    duration = len(v1_frames) / args.fps
+    audio_data, sr = synth_broken_audio(duration, args.chaos, args.drag)
+    audio_path = tmp / "noise.wav"
+    with wave.open(str(audio_path), 'wb') as wf:
+        wf.setnchannels(1); wf.setsampwidth(2); wf.setframerate(sr)
         wf.writeframes(audio_data.tobytes())
 
+    print(">> MUXING FINAL OUTPUT...")
     subprocess.run([
-        "ffmpeg", "-y", "-framerate", str(fps), "-i", f"{out_dir}/done_%04d.png",
-        "-i", audio_path, "-c:v", "libx264", "-pix_fmt", "yuv420p", 
-        "-crf", "28", "-preset", "veryfast", "-shortest", out_name
-    ])
+        "ffmpeg", "-y", "-framerate", str(args.fps), "-i", f"{out_dir}/frame_%05d.png",
+        "-i", str(audio_path), "-c:v", "libx264", "-pix_fmt", "yuv420p", 
+        "-crf", str(args.crf), "-preset", "ultrafast", "-shortest", args.out
+    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    
     shutil.rmtree(tmp)
-    print(f">> Created: {out_name}")
+    print(f">> COMPLETE: {args.out}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--v1", required=True)
-    parser.add_argument("--v2", required=True)
-    parser.add_argument("--chaos", type=float, default=2.0)
-    parser.add_argument("--out", default="decay.mp4")
+    parser = argparse.ArgumentParser(description="Hyper-Ludovico Entropy Engine")
+    parser.add_argument("--v1", required=True, help="Base video")
+    parser.add_argument("--v2", required=True, help="Texture/Glitch video")
+    parser.add_argument("--out", default="entropy_mosh.mp4")
+    parser.add_argument("--chaos", type=float, default=2.0, help="Glitch intensity")
+    parser.add_argument("--drag", type=float, default=1.0, help="Motion smear length")
+    parser.add_argument("--crf", type=int, default=24, help="Compression artifacts")
+    parser.add_argument("--fps", type=int, default=24)
+    parser.add_argument("--internal-res", default="480x360")
+    
     args = parser.parse_args()
-    process(args.v1, args.v2, args.out, args.chaos)
+    process_video(args)
