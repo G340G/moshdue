@@ -164,6 +164,6 @@ if __name__ == "__main__":
     parser.add_argument("--drag", type=float, default=2.0)
     parser.add_argument("--crf", type=int, default=24)
     parser.add_argument("--fps", type=int, default=24)
-    parser.add_argument("--out", default="entropy_vhs.mp4")
+    parser.add_argument("--out", default="output_entropy.mp4")
     args = parser.parse_args()
     process_video(args)
