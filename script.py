@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-HYPER-LUDOVICO V9: TOTAL ENTROPY ENGINE
-- Professional Optical Flow (Farneback)
-- 5-Second Texture Injection (V2)
-- Experimental FM + Granular Sonic Engine
-- Corrupt-Header (moov atom) Robustness
+HYPER-LUDOVICO V10: QUANTUM INJECTION EDITION
+- Random Full-Clip V2 Insertion
+- Fully Personalizable Glitch Parameters
+- Recursive Motion Smearing
+- Professional FM/Granular Audio
 """
 
 import os
@@ -18,139 +18,146 @@ import cv2
 import wave
 from pathlib import Path
 
-# -------------------- SONIC EXPERIMENTATION (FM SYNTH) --------------------
+# -------------------- PERSONALIZABLE ARTIFACTS --------------------
 
-def synth_experimental_audio(duration, chaos):
-    """
-    Generates professional glitch-art audio using FM Synthesis.
-    A 'Modulator' wave shifts the frequency of a 'Carrier' wave.
-    """
+def apply_chroma_bleed(img, intensity):
+    """Shifts color channels independently to simulate analog signal rot."""
+    if intensity <= 0: return img
+    yuv = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
+    # Shift U and V channels horizontally
+    shift = int(intensity * 5)
+    yuv[:,:,1] = np.roll(yuv[:,:,1], shift, axis=1)
+    yuv[:,:,2] = np.roll(yuv[:,:,2], -shift, axis=1)
+    return cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR)
+
+def apply_luma_tear(img, probability):
+    """Simulates packet loss or tracking errors with horizontal 'rolls'."""
+    if random.random() > probability: return img
+    h, w, _ = img.shape
+    y_start = random.randint(0, h-20)
+    slice_h = random.randint(5, 50)
+    shift = random.randint(-w//4, w//4)
+    img[y_start:y_start+slice_h] = np.roll(img[y_start:y_start+slice_h], shift, axis=1)
+    return img
+
+def apply_head_noise(img, frequency):
+    """The classic VHS static bar at the bottom of the frame."""
+    if random.random() > frequency: return img
+    h, w, _ = img.shape
+    noise_h = random.randint(2, 8)
+    img[h-noise_h:, :] = np.random.randint(0, 255, (noise_h, w, 3), dtype=np.uint8)
+    return img
+
+# -------------------- AUDIO SYNTHESIS --------------------
+
+
+
+[Image of frequency modulation synthesis]
+
+
+def synth_professional_audio(duration, chaos, stutter_prob):
     sr = 44100
-    n_samples = int(duration * sr)
-    t = np.linspace(0, duration, n_samples)
+    n = int(duration * sr)
+    t = np.linspace(0, duration, n)
     
-    # 1. FM Synthesis: Carrier (pitch) modulated by a high-depth Modulator
-    # This creates metallic, 'robotic' screaming textures
-    mod_freq = random.uniform(20, 150)
-    mod_depth = 500 * chaos
-    modulator = np.sin(2 * np.pi * mod_freq * t) * mod_depth
+    # FM Synthesis Base
+    modulator = np.sin(2 * np.pi * random.uniform(20, 100) * t) * (chaos * 400)
+    carrier = np.sin(2 * np.pi * 60 * t + modulator) * 0.2
     
-    carrier_freq = 60 # Low bass hum
-    audio = np.sin(2 * np.pi * carrier_freq * t + modulator) * 0.2
-    
-    # 2. Granular Stutter
-    # Repeats tiny fragments of audio to simulate a digital crash
-    grain_size = int(sr * 0.04) 
-    for i in range(0, n_samples - grain_size, grain_size):
-        if random.random() < (0.12 * chaos):
-            audio[i:i+grain_size] = audio[max(0, i-grain_size):i]
+    # Granular Stuttering
+    grain = int(sr * 0.05)
+    for i in range(0, n - grain, grain):
+        if random.random() < stutter_prob:
+            carrier[i:i+grain] = carrier[max(0, i-grain):i]
             
-    # 3. Harsh Distortion & Soft Clipping
-    audio = np.clip(audio * (3.0 * chaos), -0.9, 0.9)
-    audio = np.tanh(audio * 2.0) # Professional saturation
-    
+    # Professional Saturation
+    audio = np.tanh(carrier * (2.0 + chaos))
     return (audio * 32767).astype(np.int16), sr
 
-# -------------------- VISUAL RECURSION ENGINE --------------------
+# -------------------- CORE ENGINE --------------------
 
-def get_motion_vectors(prev, curr):
-    """Calculates professional motion flow between frames."""
-    prev_g = cv2.cvtColor(prev, cv2.COLOR_BGR2GRAY)
-    curr_g = cv2.cvtColor(curr, cv2.COLOR_BGR2GRAY)
-    # Farneback algorithm for 'liquid' motion tracking
-    return cv2.calcOpticalFlowFarneback(prev_g, curr_g, None, 0.5, 3, 15, 3, 5, 1.2, 0)
-
-def apply_mosh_warp(canvas, flow, drag=1.0):
-    """Recursive pixel dragging: pushes existing pixels along motion vectors."""
-    h, w = canvas.shape[:2]
-    flow_map = np.copy(flow)
-    flow_map[:,:,0] += np.arange(w)
-    flow_map[:,:,1] += np.arange(h)[:,np.newaxis]
-    return cv2.remap(canvas, flow_map.astype(np.float32), None, 
-                    cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
-
-# -------------------- MAIN PROCESSOR --------------------
-
-def process_entropy(args):
+def process_video(args):
     tmp = Path(tempfile.mkdtemp())
-    print(f">> INITIALIZING ENGINE | SESSION_ID: {random.randint(100,999)}")
+    print(f">> INITIALIZING QUANTUM ENGINE | TARGET: {args.out}")
 
-    # Robust Frame Extraction (Ignores header errors / moov atom issues)
-    def extract_robust(path, prefix):
-        print(f">> Analyzing {path}...")
+    def extract(path, prefix):
         subprocess.run([
             "ffmpeg", "-y", "-err_detect", "ignore_err", "-i", path,
             "-vf", f"scale=480:360,fps={args.fps}", str(tmp / f"{prefix}_%05d.png")
         ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
-    extract_robust(args.v1, "v1")
-    extract_robust(args.v2, "v2")
+    extract(args.v1, "v1")
+    extract(args.v2, "v2")
 
     v1_frames = sorted(list(tmp.glob("v1_*.png")))
     v2_frames = sorted(list(tmp.glob("v2_*.png")))
-
-    if not v1_frames:
-        print("!! ERROR: V1 extraction failed. Ensure input.mp4 is not empty.")
+    
+    if not v1_frames or not v2_frames:
+        print("!! ERROR: Could not extract frames. Check input files.")
         return
 
-    # Logic: Texture (V2) is only used for the first 5 seconds
-    v2_limit = int(args.fps * 5)
+    # Logic: Randomly place V2 (full length) inside V1
+    n1, n2 = len(v1_frames), len(v2_frames)
+    if n2 >= n1:
+        start_idx = 0
+    else:
+        start_idx = random.randint(0, n1 - n2)
     
+    print(f">> V2 INJECTION WINDOW: Frame {start_idx} to {start_idx + n2}")
+
     canvas = cv2.imread(str(v1_frames[0]))
     prev_source = canvas.copy()
     out_dir = tmp / "render"
     out_dir.mkdir()
 
-    print(f">> MOSHING {len(v1_frames)} FRAMES...")
-
     
 
-    for i in range(1, len(v1_frames)):
+    for i in range(1, n1):
         curr_source = cv2.imread(str(v1_frames[i]))
         
-        # Calculate Optical Flow for professional smearing
-        flow = get_motion_vectors(prev_source, curr_source)
+        # Calculate Motion Flow
+        p_g = cv2.cvtColor(prev_source, cv2.COLOR_BGR2GRAY)
+        c_g = cv2.cvtColor(curr_source, cv2.COLOR_BGR2GRAY)
+        flow = cv2.calcOpticalFlowFarneback(p_g, c_g, None, 0.5, 3, 15, 3, 5, 1.2, 0)
         
-        # Datamosh Logic: Refresh vs Smear
+        # Datamosh Smear
         if random.random() > (0.05 / args.chaos):
-            # SMEAR: Warp the previous canvas based on current motion
-            canvas = apply_mosh_warp(canvas, flow, drag=args.drag)
+            h, w = canvas.shape[:2]
+            m = np.copy(flow)
+            m[:,:,0] += np.arange(w)
+            m[:,:,1] += np.arange(h)[:,np.newaxis]
+            canvas = cv2.remap(canvas, m.astype(np.float32), None, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REPLICATE)
         else:
-            # REFRESH / INJECT
-            if i < v2_limit and v2_frames:
-                # Use a random texture frame from V2 (First 5 seconds only)
-                canvas = cv2.imread(str(random.choice(v2_frames)))
+            # Injection Logic
+            v2_active = start_idx <= i < (start_idx + n2)
+            if v2_active:
+                canvas = cv2.imread(str(v2_frames[i - start_idx]))
             else:
-                # Use the current real frame from V1
                 canvas = curr_source.copy()
 
-        # Apply Analog Visual Rot (Chroma Bleed)
-        yuv = cv2.cvtColor(canvas, cv2.COLOR_BGR2YUV)
-        yuv[:,:,1] = np.roll(yuv[:,:,1], int(3 * args.chaos), axis=1)
-        canvas = cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR)
+        # Apply Personalized Glitches
+        canvas = apply_chroma_bleed(canvas, args.chroma)
+        canvas = apply_luma_tear(canvas, args.tear)
+        canvas = apply_head_noise(canvas, args.head)
         
-        # Overlay tiny bit of original for 'ghosting' effect
+        # Subtle Blend
         final = cv2.addWeighted(canvas, 0.9, curr_source, 0.1, 0)
-        
         cv2.imwrite(str(out_dir / f"f_{i:05d}.png"), final)
         prev_source = curr_source
-        if i % 30 == 0: print(f" Rendering: {int(i/len(v1_frames)*100)}%")
+        if i % 50 == 0: print(f" Rendering: {int(i/n1*100)}%")
 
-    # Audio Muxing
-    duration = len(v1_frames) / args.fps
-    print(f">> SYNTHESIZING SONIC ENTROPY ({duration:.2f}s)...")
-    audio_data, sr = synth_experimental_audio(duration, args.chaos)
+    # Audio & Export
+    duration = n1 / args.fps
+    audio_data, sr = synth_professional_audio(duration, args.chaos, args.stutter)
     audio_path = tmp / "sonic.wav"
     with wave.open(str(audio_path), 'wb') as wf:
         wf.setnchannels(1); wf.setsampwidth(2); wf.setframerate(sr)
         wf.writeframes(audio_data.tobytes())
 
-    print(">> FINAL MULTIPLEXING...")
     subprocess.run([
         "ffmpeg", "-y", "-framerate", str(args.fps), "-i", str(out_dir / "f_%05d.png"),
-        "-i", str(audio_path), "-c:v", "libx264", "-c:a", "aac", "-b:a", "192k",
-        "-pix_fmt", "yuv420p", "-crf", str(args.crf), "-preset", "ultrafast", 
-        "-shortest", args.out
+        "-i", str(audio_path), "-c:v", "libx264", "-c:a", "aac", "-pix_fmt", "yuv420p",
+        "-crf", str(args.crf), "-preset", "ultrafast", "-shortest", args.out
     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     shutil.rmtree(tmp)
@@ -158,12 +165,23 @@ def process_entropy(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    # Required Inputs
     parser.add_argument("--v1", required=True)
     parser.add_argument("--v2", required=True)
-    parser.add_argument("--chaos", type=float, default=2.5)
-    parser.add_argument("--drag", type=float, default=1.0)
+    
+    # Visual Personalization
+    parser.add_argument("--chaos", type=float, default=2.5, help="Global glitch intensity")
+    parser.add_argument("--chroma", type=float, default=1.0, help="Color bleeding intensity")
+    parser.add_argument("--tear", type=float, default=0.1, help="Probability of luma tearing")
+    parser.add_argument("--head", type=float, default=0.8, help="VHS head-noise frequency")
+    
+    # Audio Personalization
+    parser.add_argument("--stutter", type=float, default=0.15, help="Audio grain repeat probability")
+    
+    # Render Settings
     parser.add_argument("--crf", type=int, default=24)
     parser.add_argument("--fps", type=int, default=24)
-    parser.add_argument("--out", default="entropy_final.mp4")
+    parser.add_argument("--out", default="quantum_entropy.mp4")
+    
     args = parser.parse_args()
-    process_entropy(args)
+    process_video(args)
